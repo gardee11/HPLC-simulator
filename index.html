@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HPLC Simulator — Classroom Edition</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f5f4f0;
+    --surface: #ffffff;
+    --surface2: #f0eeea;
+    --border: rgba(0,0,0,0.1);
+    --border2: rgba(0,0,0,0.18);
+    --text: #1a1a18;
+    --text2: #6b6b65;
+    --text3: #9a9a94;
+    --radius-md: 8px;
+    --radius-lg: 13px;
+    --caf: #185FA5;
+    --caf-light: #E6F1FB;
+    --caf-dark: #0C447C;
+    --asp: #993C1D;
+    --asp-light: #FAECE7;
+    --asp-dark: #712B13;
+    --green: #1D9E75;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a18;
+      --surface: #242422;
+      --surface2: #2e2e2b;
+      --border: rgba(255,255,255,0.08);
+      --border2: rgba(255,255,255,0.15);
+      --text: #f0eeea;
+      --text2: #a0a09a;
+      --text3: #6b6b65;
+      --caf-light: #0c2a44;
+      --caf-dark: #85B7EB;
+      --asp-light: #3a1a0c;
+      --asp-dark: #F0997B;
+    }
+  }
+
+  body {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  header {
+    background: var(--surface);
+    border-bottom: 0.5px solid var(--border2);
+    padding: 16px 32px;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+
+  header h1 {
+    font-size: 20px;
+    font-weight: normal;
+    letter-spacing: -0.3px;
+    color: var(--text);
+  }
+
+  header span {
+    font-size: 12px;
+    color: var(--text2);
+    font-family: 'Courier New', monospace;
+    letter-spacing: 0.05em;
+  }
+
+  .main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px 24px 40px;
+  }
+
+  .top-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 18px;
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    width: fit-content;
+    background: var(--surface);
+  }
+
+  .top-tab {
+    padding: 8px 22px;
+    font-size: 13px;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    background: transparent;
+    color: var(--text2);
+    border: none;
+    transition: background .15s, color .15s;
+  }
+
+  .top-tab:not(:last-child) { border-right: 0.5px solid var(--border); }
+  .top-tab.active { background: var(--surface2); color: var(--text); }
+  .top-tab:hover:not(.active) { background: var(--surface2); }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 14px;
+    align-items: start;
+  }
+
+  .col-left { display: flex; flex-direction: column; gap: 10px; }
+  .col-right { display: flex; flex-direction: column; gap: 10px; }
+
+  .card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 13px 15px;
+  }
+
+  .card-title {
+    font-size: 10px;
+    font-weight: normal;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    font-family: 'Courier New', monospace;
+    margin-bottom: 10px;
+  }
+
+  .param-row { margin-bottom: 10px; }
+  .param-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text2);
+    margin-bottom: 4px;
+    font-family: 'Courier New', monospace;
+  }
+  .pval { font-weight: normal; color: var(--text); }
+
+  input[type=range] {
+    width: 100%;
+    accent-color: var(--text2);
+    cursor: pointer;
+  }
+
+  .seg-group { display: flex; gap: 5px; flex-wrap: wrap; }
+
+  .seg-btn {
+    flex: 1;
+    min-width: 36px;
+    padding: 5px 6px;
+    font-size: 11px;
+    font-family: 'Courier New', monospace;
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--text2);
+    cursor: pointer;
+    text-align: center;
+    transition: background .15s, color .15s;
+    white-space: nowrap;
+  }
+
+  .seg-btn.active {
+    background: var(--surface2);
+    color: var(--text);
+    border-color: var(--border2);
+  }
+
+  .seg-btn:hover:not(.active) { background: var(--surface2); }
+
+  .btn-row { display: flex; gap: 7px; }
+
+  .btn {
+    flex: 1;
+    padding: 8px 8px;
+    font-size: 12px;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 0.04em;
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    transition: background .15s;
+  }
+
+  .btn:hover:not(:disabled) { background: var(--surface2); }
+  .btn:disabled { opacity: .35; cursor: default; }
+  .btn.accent { background: var(--surface2); }
+
+  .mcard {
+    background: var(--surface2);
+    border-radius: var(--radius-md);
+    padding: 8px 11px;
+  }
+
+  .mlabel {
+    font-size: 10px;
+    color: var(--text3);
+    font-family: 'Courier New', monospace;
+    letter-spacing: 0.04em;
+    margin-bottom: 3px;
+  }
+
+  .mval {
+    font-size: 17px;
+    font-weight: normal;
+    color: var(--text);
+    font-family: 'Courier New', monospace;
+  }
+
+  .mval.caf { color: var(--caf); }
+  .mval.asp { color: var(--asp); }
+  .mval.green { color: var(--green); }
+
+  .mgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+
+  .row-charts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .badge {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: var(--radius-md);
+    font-family: 'Courier New', monospace;
+    letter-spacing: 0.04em;
+  }
+
+  .badge.caf { background: var(--caf-light); color: var(--caf-dark); }
+  .badge.asp { background: var(--asp-light); color: var(--asp-dark); }
+
+  .unk-info {
+    background: var(--surface2);
+    border-radius: var(--radius-md);
+    padding: 9px 12px;
+    font-size: 11px;
+    font-family: 'Courier New', monospace;
+    color: var(--text2);
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  .std-table { width: 100%; font-size: 11px; border-collapse: collapse; font-family: 'Courier New', monospace; }
+  .std-table th { text-align: left; color: var(--text3); font-weight: normal; padding: 3px 6px; border-bottom: 0.5px solid var(--border); letter-spacing: 0.05em; }
+  .std-table td { padding: 4px 6px; color: var(--text2); border-bottom: 0.5px solid var(--border); }
+  .std-table tr:last-child td { border-bottom: none; }
+
+  .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+
+  .legend-row {
+    display: flex;
+    gap: 12px;
+    font-size: 11px;
+    font-family: 'Courier New', monospace;
+    color: var(--text2);
+    margin-bottom: 6px;
+    align-items: center;
+  }
+
+  .col-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    font-family: 'Courier New', monospace;
+    color: var(--text3);
+    margin-bottom: 3px;
+    letter-spacing: 0.05em;
+  }
+
+  .axis-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    font-family: 'Courier New', monospace;
+    color: var(--text3);
+    margin-top: 3px;
+  }
+
+  footer {
+    text-align: center;
+    font-size: 11px;
+    font-family: 'Courier New', monospace;
+    color: var(--text3);
+    padding: 20px;
+    border-top: 0.5px solid var(--border);
+    margin-top: 30px;
+    letter-spacing: 0.05em;
+  }
+
+  @media (max-width: 700px) {
+    .layout { grid-template-columns: 1fr; }
+    .row-charts { grid-template-columns: 1fr; }
+    header { padding: 12px 16px; }
+    .main { padding: 14px 12px 32px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>HPLC Simulator</h1>
+  <span>Classroom Edition &mdash; C18 Column / UV Detection</span>
+</header>
+
+<div class="main">
+
+  <div class="top-tabs">
+    <button class="top-tab active" data-mode="simulate">Simulation</button>
+    <button class="top-tab" data-mode="calibration">Calibration</button>
+    <button class="top-tab" data-mode="unknown">Unknown Sample</button>
+  </div>
+
+  <div class="layout">
+
+    <div class="col-left">
+
+      <div class="card">
+        <div class="card-title">Sample</div>
+        <div class="seg-group" id="sampleSel">
+          <div class="seg-btn active" data-val="mixture">Mixture</div>
+          <div class="seg-btn" data-val="caffeine">Caffeine</div>
+          <div class="seg-btn" data-val="aspirin">Aspirin</div>
+        </div>
+      </div>
+
+      <div class="card" id="concCard" style="display:none">
+        <div class="card-title" id="concCardTitle">Concentration</div>
+        <div class="seg-group" id="concPresets" style="flex-wrap:wrap;gap:5px"></div>
+        <div id="unkInfo" class="unk-info" style="display:none;margin-top:8px">
+          Unknown generated.<br>Run the chromatogram<br>to detect it.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Mobile phase</div>
+        <div class="param-row">
+          <div class="param-label">
+            <span>Acetonitrile</span>
+            <span class="pval" id="acnVal">40%</span>
+          </div>
+          <input type="range" id="acnSlider" min="10" max="90" value="40" step="5">
+          <div style="font-size:10px;color:var(--text3);margin-top:2px;font-family:'Courier New',monospace">
+            Water: <span id="waterVal">60%</span>
+          </div>
+        </div>
+        <div class="param-row" style="margin-bottom:0">
+          <div class="param-label">
+            <span>Flow rate</span>
+            <span class="pval" id="flowVal">1.0 mL/min</span>
+          </div>
+          <input type="range" id="flowSlider" min="0.5" max="3.0" value="1.0" step="0.5">
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Run controls</div>
+        <div class="btn-row">
+          <button class="btn accent" id="startBtn">Run</button>
+          <button class="btn" id="stopBtn" disabled>Stop</button>
+          <button class="btn" id="resetBtn">Reset</button>
+        </div>
+      </div>
+
+      <div class="card" style="overflow:auto">
+        <div class="card-title">Results</div>
+        <div id="resultsBody">
+          <div style="font-size:11px;color:var(--text3);font-family:'Courier New',monospace">Run to see results.</div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="col-right">
+
+      <div class="card">
+        <div class="card-title">HPLC column — band separation</div>
+        <div class="col-labels"><span>Injection port</span><span>UV Detector</span></div>
+        <canvas id="colCanvas" width="600" height="80" style="width:100%;border-radius:5px"></canvas>
+      </div>
+
+      <div class="row-charts">
+
+        <div class="card" style="display:flex;flex-direction:column">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <div class="card-title" style="margin-bottom:0">Chromatogram</div>
+            <div class="legend-row" style="margin-bottom:0">
+              <span id="legCaf" style="display:none"><span class="dot" style="background:#378ADD"></span> Caffeine</span>
+              <span id="legAsp" style="display:none"><span class="dot" style="background:#D85A30"></span> Aspirin</span>
+            </div>
+          </div>
+          <div style="position:relative;flex:1;min-height:210px">
+            <canvas id="chromCanvas" role="img" aria-label="Live chromatogram showing absorbance over time"></canvas>
+          </div>
+          <div class="axis-label"><span>0</span><span>Time (min)</span><span>10</span></div>
+        </div>
+
+        <div class="card" style="display:flex;flex-direction:column">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <div class="card-title" style="margin-bottom:0" id="calChartTitle">Calibration curve</div>
+            <span id="calBadge" class="badge caf">Caffeine</span>
+          </div>
+          <div style="position:relative;flex:1;min-height:210px">
+            <canvas id="calCanvas" role="img" aria-label="Calibration curve: peak area vs concentration"></canvas>
+          </div>
+          <div style="font-size:10px;color:var(--text3);font-family:'Courier New',monospace;text-align:center;margin-top:3px">Concentration (ppm)</div>
+          <div id="rSquaredLabel" style="font-size:10px;color:var(--text3);font-family:'Courier New',monospace;text-align:right;margin-top:2px"></div>
+        </div>
+
+      </div>
+
+      <div class="card" id="stdTableCard" style="display:none">
+        <div class="card-title">Calibration log</div>
+        <table class="std-table">
+          <thead>
+            <tr>
+              <th>Compound</th>
+              <th>Conc. (ppm)</th>
+              <th>Peak area (AU·min)</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="stdTableBody"></tbody>
+        </table>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<footer>HPLC Simulator &mdash; For educational use only &mdash; C18 Reverse-Phase Column</footer>
+
+<script>
+const PRESETS = [0, 20, 40, 60, 80, 100];
+const SIM_DUR = 45, CHROM_DUR = 10;
+let mode = 'simulate', sample = 'mixture';
+let running = false, raf = null, simTime = 0, lastTs = null;
+let selConc = 20;
+let unknownConc = { caf: 0, asp: 0 };
+let calData = { caf: [], asp: [] };
+let chromChart = null, calChartInst = null;
+
+function ACN() { return parseInt(document.getElementById('acnSlider').value); }
+function FLOW() { return parseFloat(document.getElementById('flowSlider').value); }
+
+function rtFactor(acn) {
+  const e = (acn - 40) / 50;
+  return { caf: Math.max(0.8, 5.5 - e * 4.5), asp: Math.max(1.2, 8.5 - e * 6.5) };
+}
+
+function getParams() {
+  const acn = ACN(), flow = FLOW();
+  const base = rtFactor(acn);
+  const concs = getActiveConc();
+  return {
+    caf: { rt: base.caf / flow, sigma: 0.25 + (1 - flow) * 0.1, height: (concs.caf / 100) * 0.9 + 0.05, color: '#378ADD', conc: concs.caf },
+    asp: { rt: base.asp / flow, sigma: 0.35 + (1 - flow) * 0.12, height: (concs.asp / 100) * 0.85 + 0.04, color: '#D85A30', conc: concs.asp }
+  };
+}
+
+function getActiveConc() {
+  if (mode === 'simulate') return { caf: 80, asp: 80 };
+  if (mode === 'unknown') return unknownConc;
+  if (sample === 'caffeine') return { caf: selConc, asp: 0 };
+  if (sample === 'aspirin') return { caf: 0, asp: selConc };
+  return { caf: selConc, asp: selConc };
+}
+
+function gaussian(t, rt, sigma) { return Math.exp(-0.5 * ((t - rt) / sigma) ** 2); }
+function peakArea(h, sigma) { return h * sigma * Math.sqrt(2 * Math.PI); }
+
+const colCvs = document.getElementById('colCanvas');
+const colCtx = colCvs.getContext('2d');
+
+function drawColumn(st) {
+  const W = colCvs.width, H = colCvs.height;
+  colCtx.clearRect(0, 0, W, H);
+  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  colCtx.fillStyle = isDark ? '#1e2e1e' : '#e8f4e8';
+  colCtx.beginPath(); colCtx.roundRect(0, 0, W, H, 4); colCtx.fill();
+  const cW = W - 30, cS = 15, cE = cS + cW;
+  const params = getParams();
+  const simMin = (Math.min(st, SIM_DUR) / SIM_DUR) * CHROM_DUR;
+
+  function drawBand(rt, sigma, color, label, show) {
+    if (!show) return;
+    const pr = Math.min(simMin / rt, 1.5);
+    const cx = cS + Math.min(pr, 1) * cW;
+    const hw = Math.max(8, sigma * 60 * (1 + pr * 0.3));
+    if (cx - hw > cE + 10 || cx + hw < cS - 10) return;
+    const g = colCtx.createLinearGradient(cx - hw, 0, cx + hw, 0);
+    g.addColorStop(0, color + '00'); g.addColorStop(0.5, color + 'cc'); g.addColorStop(1, color + '00');
+    colCtx.fillStyle = g;
+    colCtx.fillRect(Math.max(cS, cx - hw), 4, Math.min(hw * 2, cE - cS), H - 8);
+    if (cx >= cS && cx <= cE) {
+      colCtx.fillStyle = color;
+      colCtx.font = '10px Courier New, monospace';
+      colCtx.textAlign = 'center';
+      colCtx.fillText(label, Math.min(Math.max(cx, cS + 28), cE - 28), H - 6);
+    }
+  }
+
+  drawBand(params.caf.rt, params.caf.sigma, '#378ADD', 'Caffeine', sample !== 'aspirin');
+  drawBand(params.asp.rt, params.asp.sigma, '#D85A30', 'Aspirin', sample !== 'caffeine');
+  colCtx.strokeStyle = isDark ? '#555' : '#aaa'; colCtx.lineWidth = 1; colCtx.strokeRect(cS, 2, cW, H - 4);
+  colCtx.fillStyle = isDark ? '#888' : '#666';
+  colCtx.font = '10px Courier New, monospace'; colCtx.textAlign = 'left';
+  colCtx.fillText('C18 Stationary Phase', cS + 6, 13);
+  colCtx.strokeStyle = isDark ? '#888' : '#999'; colCtx.lineWidth = 1.5;
+  colCtx.beginPath(); colCtx.moveTo(cE + 2, H / 2 - 5); colCtx.lineTo(cE + 12, H / 2); colCtx.lineTo(cE + 2, H / 2 + 5); colCtx.stroke();
+}
+
+let chromData = { labels: [], caf: [], asp: [] };
+
+function getChartColors() {
+  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  return { text: isDark ? '#888' : '#888', grid: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' };
+}
+
+function initChromChart() {
+  const cvs = document.getElementById('chromCanvas');
+  const par = cvs.parentElement;
+  cvs.width = par.offsetWidth || 380; cvs.height = par.offsetHeight || 210;
+  if (chromChart) { chromChart.destroy(); chromChart = null; }
+  chromData = { labels: [], caf: [], asp: [] };
+  const datasets = [];
+  const c = getChartColors();
+  if (sample !== 'aspirin') datasets.push({ label: 'Caffeine', data: [], borderColor: '#378ADD', backgroundColor: '#378ADD15', borderWidth: 1.5, pointRadius: 0, fill: true, tension: 0.4 });
+  if (sample !== 'caffeine') datasets.push({ label: 'Aspirin', data: [], borderColor: '#D85A30', backgroundColor: '#D85A3015', borderWidth: 1.5, pointRadius: 0, fill: true, tension: 0.4 });
+  chromChart = new Chart(cvs.getContext('2d'), {
+    type: 'line',
+    data: { labels: [], datasets },
+    options: {
+      responsive: false, animation: false, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { type: 'linear', min: 0, max: CHROM_DUR, ticks: { stepSize: 2, font: { size: 10, family: 'Courier New' }, color: c.text, callback: v => Number.isInteger(v) ? v : '' }, grid: { color: c.grid } },
+        y: { min: 0, max: 1.05, title: { display: true, text: 'Absorbance (AU)', font: { size: 10, family: 'Courier New' }, color: c.text }, ticks: { font: { size: 10, family: 'Courier New' }, color: c.text, callback: v => v.toFixed(1) }, grid: { color: c.grid } }
+      }
+    }
+  });
+}
+
+function updateChromChart(simMin) {
+  const params = getParams();
+  const step = 0.05;
+  const lastT = chromData.labels.length > 0 ? chromData.labels[chromData.labels.length - 1] : -1;
+  for (let t = Math.max(0, lastT + step); t <= Math.min(simMin, CHROM_DUR); t = Math.round((t + step) * 100) / 100) {
+    chromData.labels.push(t);
+    if (sample !== 'aspirin') chromData.caf.push(params.caf.height * gaussian(t, params.caf.rt, params.caf.sigma));
+    if (sample !== 'caffeine') chromData.asp.push(params.asp.height * gaussian(t, params.asp.rt, params.asp.sigma));
+  }
+  let di = 0;
+  if (sample !== 'aspirin' && chromChart.data.datasets[di]) { chromChart.data.datasets[di].data = chromData.labels.map((t, i) => ({ x: t, y: chromData.caf[i] })); di++; }
+  if (sample !== 'caffeine' && chromChart.data.datasets[di]) chromChart.data.datasets[di].data = chromData.labels.map((t, i) => ({ x: t, y: chromData.asp[i] }));
+  chromChart.update('none');
+}
+
+function linearReg(pts) {
+  if (!pts || pts.length < 2) return null;
+  const n = pts.length;
+  const sx = pts.reduce((a, p) => a + p.conc, 0), sy = pts.reduce((a, p) => a + p.area, 0);
+  const sxy = pts.reduce((a, p) => a + p.conc * p.area, 0), sxx = pts.reduce((a, p) => a + p.conc * p.conc, 0);
+  const denom = (n * sxx - sx * sx) || 1;
+  const m = (n * sxy - sx * sy) / denom;
+  const b = (sy - m * sx) / n;
+  const yMean = sy / n;
+  const ssTot = pts.reduce((a, p) => a + (p.area - yMean) ** 2, 0);
+  const ssRes = pts.reduce((a, p) => a + (p.area - (m * p.conc + b)) ** 2, 0);
+  const r2 = ssTot > 0 ? 1 - ssRes / ssTot : 1;
+  return { m, b, r2 };
+}
+
+function initCalChart(unknownPt) {
+  const cvs = document.getElementById('calCanvas');
+  const par = cvs.parentElement;
+  cvs.width = par.offsetWidth || 380; cvs.height = par.offsetHeight || 210;
+  if (calChartInst) { calChartInst.destroy(); calChartInst = null; }
+  const compound = sample === 'aspirin' ? 'asp' : 'caf';
+  const color = compound === 'caf' ? '#378ADD' : '#D85A30';
+  const c = getChartColors();
+  const pts = calData[compound].map(d => ({ x: d.conc, y: d.area }));
+  const datasets = [{ label: 'Standards', data: pts, borderColor: color, backgroundColor: color, pointRadius: 5, pointStyle: 'circle', showLine: false, order: 2 }];
+  const reg = linearReg(calData[compound]);
+  if (reg && calData[compound].length >= 2) {
+    datasets.push({ label: 'Linear fit', data: [{ x: 0, y: reg.b }, { x: 100, y: reg.m * 100 + reg.b }], borderColor: color + '80', borderWidth: 1.5, borderDash: [5, 4], pointRadius: 0, showLine: true, order: 3 });
+    document.getElementById('rSquaredLabel').textContent = 'R\u00B2 = ' + reg.r2.toFixed(4) + '  |  y = ' + reg.m.toFixed(4) + 'x + ' + reg.b.toFixed(4);
+  } else {
+    document.getElementById('rSquaredLabel').textContent = '';
+  }
+  if (unknownPt) {
+    const unkColor = compound === 'caf' ? '#0C447C' : '#712B13';
+    datasets.push({ label: 'Unknown', data: [{ x: unknownPt.x, y: unknownPt.y }], borderColor: unkColor, backgroundColor: 'transparent', borderWidth: 2, pointRadius: 9, pointStyle: 'crossRot', order: 1 });
+  }
+  calChartInst = new Chart(cvs.getContext('2d'), {
+    type: 'scatter',
+    data: { datasets },
+    options: {
+      responsive: false, animation: false, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { type: 'linear', min: 0, max: 110, ticks: { font: { size: 10, family: 'Courier New' }, color: c.text }, grid: { color: c.grid } },
+        y: { min: 0, title: { display: true, text: 'Peak area (AU\u00B7min)', font: { size: 10, family: 'Courier New' }, color: c.text }, ticks: { font: { size: 10, family: 'Courier New' }, color: c.text, callback: v => v.toFixed(2) }, grid: { color: c.grid } }
+      }
+    }
+  });
+}
+
+function addToTable(compound, conc, area) {
+  const tbody = document.getElementById('stdTableBody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td>${compound}</td><td>${conc}</td><td>${area}</td><td style="color:#1D9E75">&#10003; Done</td>`;
+  tbody.appendChild(tr);
+}
+
+function renderResults(done) {
+  const params = getParams();
+  const compound = sample === 'aspirin' ? 'asp' : 'caf';
+  let unknownPt = null;
+
+  function block(k, label) {
+    const p = params[k];
+    const rt = p.rt.toFixed(2), pw = (4 * p.sigma).toFixed(2), ph = p.height.toFixed(3), area = peakArea(p.height, p.sigma).toFixed(4);
+    return `<div style="margin-bottom:10px">
+      <div style="font-size:11px;font-weight:normal;color:${p.color};margin-bottom:6px;font-family:'Courier New',monospace;letter-spacing:.03em">${label}</div>
+      <div class="mgrid">
+        <div class="mcard"><div class="mlabel">Retention time</div><div class="mval ${k}">${rt} min</div></div>
+        <div class="mcard"><div class="mlabel">Peak width</div><div class="mval ${k}">${pw} min</div></div>
+        <div class="mcard"><div class="mlabel">Peak height</div><div class="mval ${k}">${ph} AU</div></div>
+        <div class="mcard"><div class="mlabel">Peak area</div><div class="mval ${k}">${area} AU·min</div></div>
+      </div></div>`;
+  }
+
+  let html = '';
+  if (sample !== 'aspirin') html += block('caf', 'Caffeine');
+  if (sample !== 'caffeine') html += block('asp', 'Aspirin');
+
+  if (mode === 'calibration' && done) {
+    const p = params[compound];
+    const area = peakArea(p.height, p.sigma);
+    calData[compound].push({ conc: selConc, area });
+    calData[compound].sort((a, b) => a.conc - b.conc);
+    addToTable(sample === 'aspirin' ? 'Aspirin' : 'Caffeine', selConc, area.toFixed(4));
+    initCalChart();
+    document.getElementById('stdTableCard').style.display = '';
+  }
+
+  if (mode === 'unknown' && done) {
+    const p = params[compound];
+    const area = peakArea(p.height, p.sigma);
+    unknownPt = { x: unknownConc[compound], y: area };
+    const reg = linearReg(calData[compound]);
+    let estConc = null;
+    if (reg && reg.m !== 0) estConc = (area - reg.b) / reg.m;
+    initCalChart(unknownPt);
+    html += `<div class="mcard" style="margin-top:8px"><div class="mlabel">Unknown — peak area</div><div class="mval">${area.toFixed(4)} AU·min</div></div>`;
+    if (reg && calData[compound].length >= 2) {
+      html += `<div class="mcard" style="margin-top:6px"><div class="mlabel">Estimated concentration</div><div class="mval green">${estConc !== null ? estConc.toFixed(1) : '—'} ppm</div></div>`;
+      html += `<div style="font-size:10px;color:var(--text3);margin-top:6px;font-family:'Courier New',monospace;line-height:1.6">True conc: <b style="color:var(--text2)">${unknownConc[compound]} ppm</b><br>Use your calibration curve equation to verify.</div>`;
+    } else {
+      html += `<div style="font-size:10px;color:var(--text3);margin-top:7px;font-family:'Courier New',monospace">Run calibration standards first to estimate concentration from the curve.</div>`;
+    }
+  }
+
+  document.getElementById('resultsBody').innerHTML = html || '<div style="font-size:11px;color:var(--text3);font-family:\'Courier New\',monospace">Run to see results.</div>';
+}
+
+function resetSim() {
+  running = false;
+  if (raf) cancelAnimationFrame(raf);
+  simTime = 0; lastTs = null;
+  document.getElementById('startBtn').disabled = false;
+  document.getElementById('stopBtn').disabled = true;
+  initChromChart();
+  drawColumn(0);
+  document.getElementById('resultsBody').innerHTML = '<div style="font-size:11px;color:var(--text3);font-family:\'Courier New\',monospace">Run to see results.</div>';
+  updateLegend();
+  if (mode !== 'simulate') initCalChart();
+}
+
+function updateLegend() {
+  document.getElementById('legCaf').style.display = sample !== 'aspirin' ? '' : 'none';
+  document.getElementById('legAsp').style.display = sample !== 'caffeine' ? '' : 'none';
+}
+
+function buildPresets() {
+  const el = document.getElementById('concPresets');
+  el.innerHTML = '';
+  PRESETS.forEach(v => {
+    const b = document.createElement('div');
+    b.className = 'seg-btn' + (v === selConc ? ' active' : '');
+    b.textContent = v === 0 ? 'Blank' : v + ' ppm';
+    b.dataset.val = v;
+    b.addEventListener('click', function () {
+      selConc = parseInt(this.dataset.val);
+      el.querySelectorAll('.seg-btn').forEach(x => x.classList.remove('active'));
+      this.classList.add('active');
+    });
+    el.appendChild(b);
+  });
+}
+
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.top-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === m));
+  const concCard = document.getElementById('concCard');
+  const unkInfo = document.getElementById('unkInfo');
+  const presets = document.getElementById('concPresets');
+  const stdCard = document.getElementById('stdTableCard');
+
+  if (m === 'simulate') {
+    concCard.style.display = 'none';
+    stdCard.style.display = 'none';
+    document.getElementById('calChartTitle').textContent = 'Calibration curve';
+  } else if (m === 'calibration') {
+    concCard.style.display = '';
+    document.getElementById('concCardTitle').textContent = 'Select standard';
+    unkInfo.style.display = 'none';
+    presets.style.display = 'flex';
+    document.getElementById('calChartTitle').textContent = 'Calibration curve';
+    buildPresets();
+  } else if (m === 'unknown') {
+    concCard.style.display = '';
+    document.getElementById('concCardTitle').textContent = 'Unknown sample';
+    presets.style.display = 'none';
+    unkInfo.style.display = '';
+    generateUnknown();
+    document.getElementById('calChartTitle').textContent = 'Calibration curve + Unknown';
+  }
+  updateCalBadge();
+  resetSim();
+}
+
+function generateUnknown() {
+  unknownConc = {
+    caf: Math.round(Math.random() * 80 + 10),
+    asp: Math.round(Math.random() * 80 + 10)
+  };
+}
+
+function updateCalBadge() {
+  const badge = document.getElementById('calBadge');
+  if (sample === 'aspirin') { badge.className = 'badge asp'; badge.textContent = 'Aspirin'; }
+  else { badge.className = 'badge caf'; badge.textContent = 'Caffeine'; }
+}
+
+function loop(ts) {
+  if (!running) return;
+  if (!lastTs) lastTs = ts;
+  const dt = (ts - lastTs) / 1000; lastTs = ts;
+  simTime += dt;
+  const simMin = (Math.min(simTime, SIM_DUR) / SIM_DUR) * CHROM_DUR;
+  drawColumn(simTime);
+  updateChromChart(simMin);
+  if (simTime >= SIM_DUR) {
+    running = false;
+    document.getElementById('startBtn').disabled = false;
+    document.getElementById('stopBtn').disabled = true;
+    renderResults(true);
+    return;
+  }
+  raf = requestAnimationFrame(loop);
+}
+
+document.getElementById('startBtn').addEventListener('click', () => {
+  if (simTime >= SIM_DUR) resetSim();
+  running = true; lastTs = null;
+  document.getElementById('startBtn').disabled = true;
+  document.getElementById('stopBtn').disabled = false;
+  raf = requestAnimationFrame(loop);
+});
+
+document.getElementById('stopBtn').addEventListener('click', () => {
+  running = false; if (raf) cancelAnimationFrame(raf);
+  document.getElementById('startBtn').disabled = false;
+  document.getElementById('stopBtn').disabled = true;
+});
+
+document.getElementById('resetBtn').addEventListener('click', resetSim);
+
+document.getElementById('acnSlider').addEventListener('input', function () {
+  document.getElementById('acnVal').textContent = this.value + '%';
+  document.getElementById('waterVal').textContent = (100 - parseInt(this.value)) + '%';
+});
+
+document.getElementById('flowSlider').addEventListener('input', function () {
+  document.getElementById('flowVal').textContent = parseFloat(this.value).toFixed(1) + ' mL/min';
+});
+
+document.querySelectorAll('#sampleSel .seg-btn').forEach(btn => {
+  btn.addEventListener('click', function () {
+    document.querySelectorAll('#sampleSel .seg-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    sample = this.dataset.val;
+    updateCalBadge();
+    updateLegend();
+    resetSim();
+  });
+});
+
+document.querySelectorAll('.top-tab').forEach(tab => {
+  tab.addEventListener('click', function () { setMode(this.dataset.mode); });
+});
+
+setMode('simulate');
+</script>
+</body>
+</html>

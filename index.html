@@ -358,12 +358,19 @@
             Water: <span id="waterVal">60%</span>
           </div>
         </div>
-        <div class="param-row" style="margin-bottom:0">
+        <div class="param-row">
           <div class="param-label">
             <span>Flow rate</span>
             <span class="pval" id="flowVal">1.0 mL/min</span>
           </div>
           <input type="range" id="flowSlider" min="0.5" max="3.0" value="1.0" step="0.5">
+        </div>
+        <div class="param-row" style="margin-bottom:0">
+          <div class="param-label">
+            <span>Run time</span>
+            <span class="pval" id="runTimeVal">10 min</span>
+          </div>
+          <input type="range" id="runTimeSlider" min="1" max="30" value="10" step="1">
         </div>
       </div>
 
@@ -406,7 +413,7 @@
           <div style="position:relative;flex:1;min-height:210px">
             <canvas id="chromCanvas" role="img" aria-label="Live chromatogram showing absorbance over time"></canvas>
           </div>
-          <div class="axis-label"><span>0</span><span>Time (min)</span><span>10</span></div>
+          <div class="axis-label"><span>0</span><span>Time (min)</span><span id="chromMaxLabel">10</span></div>
         </div>
 
         <div class="card" style="display:flex;flex-direction:column">
@@ -459,6 +466,7 @@ let chromChart = null, calChartInst = null;
 
 function ACN() { return parseInt(document.getElementById('acnSlider').value); }
 function FLOW() { return parseFloat(document.getElementById('flowSlider').value); }
+function RUNTIME() { return parseInt(document.getElementById('runTimeSlider').value); }
 
 function rtFactor(acn) {
   const e = (acn - 40) / 50;
@@ -497,7 +505,7 @@ function drawColumn(st) {
   colCtx.beginPath(); colCtx.roundRect(0, 0, W, H, 4); colCtx.fill();
   const cW = W - 30, cS = 15, cE = cS + cW;
   const params = getParams();
-  const simMin = (Math.min(st, SIM_DUR) / SIM_DUR) * CHROM_DUR;
+  const simMin = (Math.min(st, SIM_DUR) / SIM_DUR) * RUNTIME();
 
   function drawBand(rt, sigma, color, label, show) {
     if (!show) return;
@@ -551,18 +559,19 @@ function initChromChart() {
       responsive: false, animation: false, maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
-        x: { type: 'linear', min: 0, max: CHROM_DUR, ticks: { stepSize: 2, font: { size: 10, family: 'Courier New' }, color: c.text, callback: v => Number.isInteger(v) ? v : '' }, grid: { color: c.grid } },
+        x: { type: 'linear', min: 0, max: RUNTIME(), ticks: { stepSize: Math.max(1, Math.round(RUNTIME()/10)), font: { size: 10, family: 'Courier New' }, color: c.text, callback: v => Number.isInteger(v) ? v : '' }, grid: { color: c.grid } },
         y: { min: 0, max: 1.05, title: { display: true, text: 'Absorbance (AU)', font: { size: 10, family: 'Courier New' }, color: c.text }, ticks: { font: { size: 10, family: 'Courier New' }, color: c.text, callback: v => v.toFixed(1) }, grid: { color: c.grid } }
       }
     }
   });
+  document.getElementById('chromMaxLabel').textContent = RUNTIME();
 }
 
 function updateChromChart(simMin) {
   const params = getParams();
   const step = 0.05;
   const lastT = chromData.labels.length > 0 ? chromData.labels[chromData.labels.length - 1] : -1;
-  for (let t = Math.max(0, lastT + step); t <= Math.min(simMin, CHROM_DUR); t = Math.round((t + step) * 100) / 100) {
+  for (let t = Math.max(0, lastT + step); t <= Math.min(simMin, RUNTIME()); t = Math.round((t + step) * 100) / 100) {
     chromData.labels.push(t);
     if (sample !== 'aspirin') chromData.caf.push(params.caf.height * gaussian(t, params.caf.rt, params.caf.sigma));
     if (sample !== 'caffeine') chromData.asp.push(params.asp.height * gaussian(t, params.asp.rt, params.asp.sigma));
@@ -766,7 +775,7 @@ function loop(ts) {
   if (!lastTs) lastTs = ts;
   const dt = (ts - lastTs) / 1000; lastTs = ts;
   simTime += dt;
-  const simMin = (Math.min(simTime, SIM_DUR) / SIM_DUR) * CHROM_DUR;
+  const simMin = (Math.min(simTime, SIM_DUR) / SIM_DUR) * RUNTIME();
   drawColumn(simTime);
   updateChromChart(simMin);
   if (simTime >= SIM_DUR) {
@@ -802,6 +811,10 @@ document.getElementById('acnSlider').addEventListener('input', function () {
 
 document.getElementById('flowSlider').addEventListener('input', function () {
   document.getElementById('flowVal').textContent = parseFloat(this.value).toFixed(1) + ' mL/min';
+});
+
+document.getElementById('runTimeSlider').addEventListener('input', function () {
+  document.getElementById('runTimeVal').textContent = this.value + ' min';
 });
 
 document.querySelectorAll('#sampleSel .seg-btn').forEach(btn => {
